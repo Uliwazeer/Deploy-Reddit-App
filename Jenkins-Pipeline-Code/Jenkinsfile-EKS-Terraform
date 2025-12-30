@@ -23,7 +23,7 @@ pipeline {
 
     options {
         timestamps()
-        ansiColor('xterm')
+        // ansiColor('xterm')  <- removed because plugin not installed
     }
 
     stages {
@@ -56,10 +56,7 @@ pipeline {
             steps {
                 withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
                     dir('EKS-TF') {
-                        sh '''
-                        set -e
-                        terraform validate
-                        '''
+                        sh 'terraform validate'
                     }
                 }
             }
@@ -69,10 +66,7 @@ pipeline {
             steps {
                 withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
                     dir('EKS-TF') {
-                        sh """
-                        set -e
-                        terraform plan -var-file=${params.'File-Name'}
-                        """
+                        sh "terraform plan -var-file=${params.'File-Name'}"
                     }
                 }
             }
@@ -84,15 +78,9 @@ pipeline {
                     dir('EKS-TF') {
                         script {
                             if (params.'Terraform-Action' == 'apply') {
-                                sh """
-                                set -e
-                                terraform apply -auto-approve -var-file=${params.'File-Name'}
-                                """
+                                sh "terraform apply -auto-approve -var-file=${params.'File-Name'}"
                             } else if (params.'Terraform-Action' == 'destroy') {
-                                sh """
-                                set -e
-                                terraform destroy -auto-approve -var-file=${params.'File-Name'}
-                                """
+                                sh "terraform destroy -auto-approve -var-file=${params.'File-Name'}"
                             } else {
                                 error "Invalid Terraform Action"
                             }
