@@ -37,12 +37,12 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonar-scanner', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('sonar-server') {
-                        sh """
+                        sh '''
                         ${SCANNER_HOME}/bin/sonar-scanner \
                         -Dsonar.projectName=Reddit \
                         -Dsonar.projectKey=Reddit \
-                        -Dsonar.login=${SONAR_TOKEN}
-                        """
+                        -Dsonar.login=$SONAR_TOKEN
+                        '''
                     }
                 }
             }
@@ -75,11 +75,11 @@ pipeline {
             steps {
                 script {
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                        sh """
+                        sh '''
                         docker build -t reddit .
                         docker tag reddit ${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${IMAGE_NAME}:${IMAGE_TAG}
-                        """
+                        '''
                     }
                 }
             }
@@ -87,7 +87,7 @@ pipeline {
 
         stage('TRIVY IMAGE SCAN') {
             steps {
-                sh "trivy image ${IMAGE_NAME}:${IMAGE_TAG} > trivy.txt"
+                sh 'trivy image ${IMAGE_NAME}:${IMAGE_TAG} > trivy.txt'
             }
         }
 
@@ -100,16 +100,23 @@ pipeline {
             steps {
                 dir('K8s') {
                     withCredentials([string(credentialsId: 'github-token', variable: 'GITHUB_TOKEN')]) {
-                        sh """
+                        sh '''
+                        set -e
+
                         git config user.email "ali.wazeer2000@gmail.com"
                         git config user.name "Uliwazeer"
 
-                        sed -i 's|${IMAGE_NAME}:.*|${IMAGE_NAME}:${IMAGE_TAG}|' deployment.yml
+                        sed -i "s|aliwazeer/reddit:.*|aliwazeer/reddit:${BUILD_NUMBER}|" deployment.yml
 
                         git add deployment.yml
-                        git commit -m "Update deployment image to ${IMAGE_TAG}"
-                        git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
-                        """
+
+                        if git diff --cached --quiet; then
+                          echo "No changes to commit"
+                        else
+                          git commit -m "Update deployment image to ${BUILD_NUMBER}"
+                          git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME}.git HEAD:main
+                        fi
+                        '''
                     }
                 }
             }
