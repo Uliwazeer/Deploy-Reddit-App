@@ -15,7 +15,7 @@ pipeline {
         }
         stage('Checkout from Git') {
             steps {
-                git branch: 'main', url: 'https://github.com/uniquesreedhar/Reddit-Project.git'
+                git branch: 'main', url: 'https://github.com/Uliwazeer/Deploy-Reddit-App.git'
             }
         }
         stage('Install Dependencies') {
@@ -78,8 +78,8 @@ pipeline {
                 dir('K8s') {
                     withCredentials([string(credentialsId: 'githubcred', variable: 'GITHUB_TOKEN')]) {
                         sh '''
-                            git config user.email "madithatisreedhar123@gmail.com"
-                            git config user.name "uniquesreedhar"
+                            git config user.email "ali.wazeer2000@gmail.com"
+                            git config user.name "Uliwazeer"
                             BUILD_NUMBER=${BUILD_NUMBER}
                             echo $BUILD_NUMBER
                             imageTag=$(grep -oP '(?<=reddit:)[^ ]+' deployment.yml)
