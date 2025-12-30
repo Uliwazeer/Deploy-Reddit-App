@@ -1,68 +1,103 @@
 properties([
     parameters([
-        string(defaultValue: 'variables.tfvars', description: 'Specify the file name', name: 'File-Name'),
-        choice(choices: ['apply', 'destroy'], description: 'Select Terraform action', name: 'Terraform-Action')
+        string(
+            name: 'File-Name',
+            defaultValue: 'variables.tfvars',
+            description: 'Terraform variables file'
+        ),
+        choice(
+            name: 'Terraform-Action',
+            choices: ['apply', 'destroy'],
+            description: 'Terraform action'
+        )
     ])
 ])
 
 pipeline {
     agent any
+
+    environment {
+        AWS_REGION = 'us-east-1'
+        TF_IN_AUTOMATION = 'true'
+    }
+
+    options {
+        timestamps()
+        ansiColor('xterm')
+    }
+
     stages {
+
         stage('Checkout from Git') {
             steps {
-                git branch: 'main', url: 'https://github.com/uniquesreedhar/Reddit-Project.git'
+                git branch: 'main',
+                    url: 'https://github.com/Uliwazeer/Deploy-Reddit-App.git'
             }
         }
-        stage('Initializing Terraform') {
+
+        stage('Terraform Init') {
             steps {
-                withAWS(credentials: 'aws-key', region: 'us-east-1') {
-                dir('EKS-TF') {
-                    script {
-                        sh 'terraform init'
+                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
+                    dir('EKS-TF') {
+                        sh '''
+                        set -e
+                        terraform init \
+                          -backend-config="bucket=ali-wazeer-reddit-tf-state-2025" \
+                          -backend-config="key=terraform.tfstate" \
+                          -backend-config="region=us-east-1" \
+                          -backend-config="dynamodb_table=Lock-Files"
+                        '''
                     }
                 }
-                }
             }
         }
-        stage('Validate Terraform Code') {
+
+        stage('Terraform Validate') {
             steps {
-                withAWS(credentials: 'aws-key', region: 'us-east-1') {
-                dir('EKS-TF') {
-                    script {
-                        sh 'terraform validate'
+                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
+                    dir('EKS-TF') {
+                        sh '''
+                        set -e
+                        terraform validate
+                        '''
                     }
                 }
-                }
             }
         }
+
         stage('Terraform Plan') {
             steps {
-                withAWS(credentials: 'aws-key', region: 'us-east-1') {
-                dir('EKS-TF') {
-                    script {
-                        sh "terraform plan -var-file=${params.'File-Name'}"
+                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
+                    dir('EKS-TF') {
+                        sh """
+                        set -e
+                        terraform plan -var-file=${params.'File-Name'}
+                        """
                     }
-                }
                 }
             }
         }
-        stage('Terraform Action') {
+
+        stage('Terraform Apply / Destroy') {
             steps {
-                withAWS(credentials: 'aws-key', region: 'us-east-1') { 
-                script {
-                    echo "${params.'Terraform-Action'}"
+                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
                     dir('EKS-TF') {
                         script {
                             if (params.'Terraform-Action' == 'apply') {
-                                sh "terraform apply -auto-approve -var-file=${params.'File-Name'}"
+                                sh """
+                                set -e
+                                terraform apply -auto-approve -var-file=${params.'File-Name'}
+                                """
                             } else if (params.'Terraform-Action' == 'destroy') {
-                                sh "terraform destroy -auto-approve -var-file=${params.'File-Name'}"
+                                sh """
+                                set -e
+                                terraform destroy -auto-approve -var-file=${params.'File-Name'}
+                                """
                             } else {
-                                error "Invalid value for Terraform-Action: ${params.'Terraform-Action'}"
+                                error "Invalid Terraform Action"
                             }
                         }
                     }
-                }
                 }
             }
         }
