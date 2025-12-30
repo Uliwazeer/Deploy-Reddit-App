@@ -25,8 +25,8 @@ pipeline {
         }
         stage("Sonarqube Analysis ") {
             steps {
-                // التعديل هنا: بنمرر الـ Token عشان السونار يوافق على التحليل
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                // تم تعديل الـ ID هنا ليكون مطابقاً لما لديك في Jenkins Credentials
+                withCredentials([string(credentialsId: 'sonar-scanner', variable: 'SONAR_TOKEN')]) {
                     withSonarQubeEnv('sonar-server') {
                         sh "$SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Reddit \
                         -Dsonar.projectKey=Reddit \
@@ -38,7 +38,8 @@ pipeline {
         stage("quality gate") {
             steps {
                 script {
-                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-token'
+                    // تم تعديل الـ ID هنا أيضاً ليطابق الإعدادات لديك
+                    waitForQualityGate abortPipeline: false, credentialsId: 'sonar-scanner'
                 }
             }
         }
