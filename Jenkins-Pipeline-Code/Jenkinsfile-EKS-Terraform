@@ -1,88 +1,62 @@
 properties([
     parameters([
-        string(
-            name: 'File-Name',
-            defaultValue: 'variables.tfvars',
-            description: 'Terraform variables file'
-        ),
-        choice(
-            name: 'Terraform-Action',
-            choices: ['apply', 'destroy'],
-            description: 'Terraform action'
-        )
+        string(defaultValue: 'variables.tfvars', description: 'Specify the file name', name: 'File-Name'),
+        choice(choices: ['apply', 'destroy'], description: 'Select Terraform action', name: 'Terraform-Action')
     ])
 ])
 
 pipeline {
     agent any
-
-    environment {
-        AWS_REGION = 'us-east-1'
-        TF_IN_AUTOMATION = 'true'
-    }
-
-    options {
-        timestamps()
-        // ansiColor('xterm')  <- removed because plugin not installed
-    }
-
     stages {
-
         stage('Checkout from Git') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/Uliwazeer/Deploy-Reddit-App.git'
+                git branch: 'main', url: 'https://github.com/uniquesreedhar/Reddit-Project.git'
             }
         }
-
-        stage('Terraform Init') {
+        stage('Initializing Terraform') {
             steps {
-                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
+                withAWS(credentials: 'aws-key', region: 'us-east-1') {
                     dir('EKS-TF') {
-                        sh '''
-                        set -e
-                        terraform init \
-                          -backend-config="bucket=ali-wazeer-reddit-tf-state-2025" \
-                          -backend-config="key=terraform.tfstate" \
-                          -backend-config="region=us-east-1" \
-                          -backend-config="dynamodb_table=Lock-Files"
-                        '''
+                        script {
+                            sh 'terraform init -backend-config=bucket=ali-wazeer-reddit-tf-state-2025 -backend-config=key=terraform.tfstate -backend-config=region=us-east-1 -backend-config=dynamodb_table=Lock-Files'
+                        }
                     }
                 }
             }
         }
-
-        stage('Terraform Validate') {
+        stage('Validate Terraform Code') {
             steps {
-                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
+                withAWS(credentials: 'aws-key', region: 'us-east-1') {
                     dir('EKS-TF') {
-                        sh 'terraform validate'
+                        script {
+                            sh 'terraform validate'
+                        }
                     }
                 }
             }
         }
-
         stage('Terraform Plan') {
             steps {
-                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
+                withAWS(credentials: 'aws-key', region: 'us-east-1') {
                     dir('EKS-TF') {
-                        sh "terraform plan -var-file=${params.'File-Name'}"
+                        script {
+                            sh "terraform plan -var-file=../Jenkins-server-TF/${params.'File-Name'}"
+                        }
                     }
                 }
             }
         }
-
-        stage('Terraform Apply / Destroy') {
+        stage('Terraform Action') {
             steps {
-                withAWS(credentials: 'aws-key', region: "${AWS_REGION}") {
+                withAWS(credentials: 'aws-key', region: 'us-east-1') { 
                     dir('EKS-TF') {
                         script {
                             if (params.'Terraform-Action' == 'apply') {
-                                sh "terraform apply -auto-approve -var-file=${params.'File-Name'}"
+                                sh "terraform apply -auto-approve -var-file=../Jenkins-server-TF/${params.'File-Name'}"
                             } else if (params.'Terraform-Action' == 'destroy') {
-                                sh "terraform destroy -auto-approve -var-file=${params.'File-Name'}"
+                                sh "terraform destroy -auto-approve -var-file=../Jenkins-server-TF/${params.'File-Name'}"
                             } else {
-                                error "Invalid Terraform Action"
+                                error "Invalid value for Terraform-Action: ${params.'Terraform-Action'}"
                             }
                         }
                     }
